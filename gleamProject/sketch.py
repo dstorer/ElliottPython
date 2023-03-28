@@ -1,5 +1,6 @@
 from astropy.io.votable import parse
 import fnmatch
+import numpy as np
 
 class Catalogue():
     '''
@@ -40,10 +41,11 @@ class Catalogue():
     sourceMap: makes source map on the sky at a given frequency, showing source locations and brightnesses
     sourceMovie: creates a movie of the sky map as you move along the frequency axis
     '''
-    def __init__(self, catalogueRA = 'degrees', catalogueDec = 'degrees', catalogueFreq = 'MHz'):
+    def __init__(self, tablepath, catalogueRA = 'degrees', catalogueDec = 'degrees', catalogueFreq = 'MHz'):
         self.catalogueRA = catalogueRA
         self.catalogueDec = catalogueDec
         self.catalogueFreq = catalogueFreq
+        self.makeCatalogue(tablepath)
 
     def makeCatalogue(self, tablepath):
         '''
@@ -58,13 +60,20 @@ class Catalogue():
         votable = parse(tablepath)
         table = list(votable.iter_tables())[0]
         at = table.to_table()
-        self.sources = at['GLEAM']
-        self.RAs = at['RAJ2000']
-        self.Decs = at['DEJ2000']
+        self.sources = np.array(at['GLEAM'])
+        self.RAs = np.array(at['RAJ2000'])
+        self.Decs = np.array(at['DEJ2000'])
         self.freqList = [x[4:] for x in fnmatch.filter(at.colnames,'Fint[0-9]*')]
-        self.Fints = 
+        y = [f'Fint{x}' for x in self.freqList]
+        self.Fints = np.zeros((len(self.sources),len(self.freqList)))
+        self.e_Fints = np.zeros((len(self.sources),len(self.freqList)))
+        for i,x in enumerate(y):
+            self.Fints[:,i] = at[x]
+            self.e_Fints[:,i] = at[f'e_{x}']
+        self.alphas = np.array(at['alpha'])
+        self.e_alphas = np.array(at['e_alpha'])
 
-    def attrSearch(self):
+    def attrSearch(self,aToSearch,aMin,aMax,outType,select=False,fToSearch=None):
         '''
         Parameters:
         ----------
@@ -80,6 +89,19 @@ class Catalogue():
         visSources: list
             list of sources with ra, dec, and brightness at a certain frequency for source map
         '''
+        if aToSearch == 'RA':
+            listSources = self.sources[np.logical_and(self.RAs<aMax,self.RAs>aMin)]
+        elif aToSearch == 'Dec':
+            listSources = self.sources[np.logical_and(self.Decs<aMax,self.Decs>aMin)]
+        elif aToSearch == 'fAtFreq':
+            x = self.Fints[:,self.freqList == fToSearch]
+            listSources = self.sources[np.logical_and(x<aMax,x>aMin)]
+        
+        if select == False:
+            return listSources
+        else:
+            ##
+    
     def updateRA(self):
         '''
         Parameters:
