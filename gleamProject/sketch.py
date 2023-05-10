@@ -1,6 +1,7 @@
 from astropy.io.votable import parse
 import fnmatch
 import numpy as np
+from astropy.coordinates import Angle
 
 class Catalogue():
     '''
@@ -41,7 +42,7 @@ class Catalogue():
     sourceMap: makes source map on the sky at a given frequency, showing source locations and brightnesses
     sourceMovie: creates a movie of the sky map as you move along the frequency axis
     '''
-    def __init__(self, tablepath, catalogueRA = 'degrees', catalogueDec = 'degrees', catalogueFreq = 'MHz'):
+    def __init__(self, tablepath, catalogueRA = 'deg', catalogueDec = 'deg', catalogueFreq = 'MHz'):
         self.catalogueRA = catalogueRA
         self.catalogueDec = catalogueDec
         self.catalogueFreq = catalogueFreq
@@ -72,7 +73,16 @@ class Catalogue():
             self.e_Fints[:,i] = at[f'e_{x}']
         self.alphas = np.array(at['alpha'])
         self.e_alphas = np.array(at['e_alpha'])
-
+    
+    def select(self,indexList):
+        self.sources = self.sources[indexList]
+        self.RAs = self.RAs[indexList]
+        self.Decs = self.Decs[indexList]
+        self.Fints = self.Fints[indexList,:]
+        self.e_Fints = self.e_Fints[indexList,:]
+        self.alphas = self.alphas[indexList]
+        self.e_alphas = self.e_alphas[indexList]
+        
     def attrSearch(self,aToSearch,aMin,aMax,outType,select=False,fToSearch=None):
         '''
         Parameters:
@@ -90,19 +100,25 @@ class Catalogue():
             list of sources with ra, dec, and brightness at a certain frequency for source map
         '''
         if aToSearch == 'RA':
-            listSources = self.sources[np.logical_and(self.RAs<aMax,self.RAs>aMin)]
+            indexList = np.logical_and(self.RAs<aMax,self.RAs>aMin)
+            #listSources = self.sources[np.logical_and(self.RAs<aMax,self.RAs>aMin)]
         elif aToSearch == 'Dec':
-            listSources = self.sources[np.logical_and(self.Decs<aMax,self.Decs>aMin)]
+            indexList = np.logical_and(self.Decs<aMax,self.Decs>aMin)
+            # listSources = self.sources[np.logical_and(self.Decs<aMax,self.Decs>aMin)]
         elif aToSearch == 'fAtFreq':
             x = self.Fints[:,self.freqList == fToSearch]
-            listSources = self.sources[np.logical_and(x<aMax,x>aMin)]
+            indexList = np.logical_and(x<aMax,x>aMin)
+            # listSources = self.sources[np.logical_and(x<aMax,x>aMin)]
         
         if select == False:
-            return listSources
+            listSources = self.sources[indexList]
+            return listSources, indexList
         else:
+            self.select(indexList)
+            return indexList
             ##
     
-    def updateRA(self):
+    def updateRA(self,newRA):
         '''
         Parameters:
         ----------
@@ -112,7 +128,17 @@ class Catalogue():
         Returns:
         ----------
         '''
-    def updateDec(self):
+        x = Angle(self.RAs,unit=self.catalogueRA)
+        if newRA == 'deg':
+            self.RAs = x.deg
+            self.catalogueRA = 'deg'
+        elif newRA == 'hms':
+            self.RAs = x.hms
+            self.catalogueRA = 'hms'
+        elif newRA == 'hourangle':
+            self.RAs = x.hourangle
+            self.catalogueRA = 'hourangle'
+    def updateDec(self,newDec):
         '''
         Parameters:
         ----------
@@ -122,7 +148,17 @@ class Catalogue():
         Returns:
         ----------
         '''
-    def updateFreq(self):
+        x = Angle(self.Decs,unit=self.catalogueDec)
+        if newDec == 'deg':
+            self.Decs = x.deg
+            self.catalogueDec = 'deg'
+        elif newDec == 'hms':
+            self.Decs = x.hms
+            self.catalogueDec = 'hms'
+        elif newDec == 'hourangle':
+            self.Decs = x.hourangle
+            self.catalogueDec = 'hourangle'
+    def updateFreq(self,newFreq):
         '''
         Parameters:
         ----------
@@ -132,6 +168,10 @@ class Catalogue():
         Returns:
         ----------
         '''
+        if newFreq == 'Hz' and self.catalogueFreq == 'MHz':
+            self.catalogueFreq /=1000
+        elif newFreq == 'MHz' and self.catalogueFreq == 'Hz':
+            self.catalogueFreq *=1000
     def specInterp(self):
         '''
         Paramteres:
